@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TM Image Uploader</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; flex-direction: column; align-items: center; padding: 40px; background: #f0f2f5; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center; max-width: 500px; width: 100%; }
+        #image-preview { max-width: 100%; max-height: 300px; margin-top: 20px; border-radius: 8px; display: none; }
+        #label-container { margin-top: 20px; text-align: left; }
+        .prediction-bar { margin: 5px 0; font-weight: bold; }
+        input[type="file"] { margin: 20px 0; }
+        .loading-msg { color: #666; font-style: italic; }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <h2>AI Image Classifier</h2>
+        <p id="status-msg" class="loading-msg">Loading Model...</p>
+        
+        <input type="file" id="image-input" accept="image/*" disabled>
+        
+        <img id="image-preview" src="#" alt="your image" />
+        
+        <div id="label-container"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+
+    <script type="text/javascript">
+        const MODEL_URL = "./my-model/";
+        let model, labelContainer, maxPredictions;
+
+        // 1. Load the model on page load
+        async function init() {
+            const modelURL = MODEL_URL + "model.json";
+            const metadataURL = MODEL_URL + "metadata.json";
+
+            model = await tmImage.load(modelURL, metadataURL);
+            maxPredictions = model.getTotalClasses();
+
+            // Enable the input once model is ready
+            document.getElementById("status-msg").innerText = "Model Loaded! Upload an image below.";
+            document.getElementById("image-input").disabled = false;
+
+            labelContainer = document.getElementById("label-container");
+            for (let i = 0; i < maxPredictions; i++) {
+                labelContainer.appendChild(document.createElement("div"));
+            }
+        }
+
+        // 2. Handle the Image Upload
+        const imageInput = document.getElementById('image-input');
+        const imagePreview = document.getElementById('image-preview');
+
+        imageInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                imagePreview.src = event.target.result;
+                imagePreview.style.display = "block";
+                
+                // Wait for image to load into the DOM before predicting
+                imagePreview.onload = async () => {
+                    await predict();
+                };
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // 3. Run Prediction
+        async function predict() {
+            // Predict can take an image, canvas, or video element
+            const prediction = await model.predict(imagePreview);
+            
+            for (let i = 0; i < maxPredictions; i++) {
+                const classPrediction =
+                    `<strong>${prediction[i].className}:</strong> ${(prediction[i].probability * 100).toFixed(1)}%`;
+                labelContainer.childNodes[i].innerHTML = classPrediction;
+                labelContainer.childNodes[i].className = "prediction-bar";
+            }
+        }
+
+        init();
+    </script>
+</body>
+</html>
